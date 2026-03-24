@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoStock — 오토바이 부품 재고관리</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0d0d; --surface:#161616; --surface2:#1e1e1e;
+    --border:#2a2a2a; --accent:#ff4d00; --accent2:#ff8c42;
+    --text:#e8e8e8; --muted:#666; --dim:#999;
+    --green:#22c55e; --yellow:#f59e0b; --red:#ef4444; --blue:#3b82f6;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+  /* TOPBAR */
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:101;display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:48px;background:#0d0d0d;border-bottom:1px solid var(--border);}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:3px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .logo span{color:var(--text);}
+  .logo-dot{width:7px;height:7px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.6)}}
+  .save-status{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px;}
+  .save-dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
+  .export-btn{padding:7px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--dim);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;transition:all .2s;white-space:nowrap;}
+  .export-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* LAYOUT */
+  .layout{display:flex;padding-top:48px;min-height:100vh;}
+  .sidebar{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:20px 0;position:fixed;top:48px;left:0;bottom:0;overflow-y:auto;}
+  .nav-label{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;padding:0 20px 8px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;margin:0 8px;border-radius:6px;cursor:pointer;font-size:14px;color:var(--dim);transition:all .15s;position:relative;}
+  .nav-item:hover{background:var(--surface2);color:var(--text);}
+  .nav-item.active{background:rgba(255,77,0,.12);color:var(--accent);}
+  .nav-item.active::before{content:'';position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--accent);border-radius:0 3px 3px 0;}
+  .badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;min-width:20px;text-align:center;}
+
+  /* MAIN */
+  .main{margin-left:210px;flex:1;padding:28px;}
+  .page{display:none;animation:fadeIn .2s ease;}
+  .page.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  /* PAGE HEADER */
+  .ph{margin-bottom:24px;}
+  .ph-title{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:2px;line-height:1;}
+  .ph-title span{color:var(--accent);}
+  .ph-sub{color:var(--muted);font-size:13px;margin-top:3px;}
+
+  /* STATS */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden;}
+  .stat::after{content:'';position:absolute;right:-16px;top:-16px;width:64px;height:64px;border-radius:50%;background:var(--c,var(--accent));opacity:.07;}
+  .stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+  .stat-val{font-family:'Bebas Neue',sans-serif;font-size:40px;line-height:1;color:var(--c,var(--text));}
+  .stat-desc{font-size:11px;color:var(--muted);margin-top:4px;}
+
+  /* TOOLBAR */
+  .tb{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+  .sw{position:relative;flex:1;min-width:180px;}
+  .sw input{width:100%;padding:8px 34px 8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:'Noto Sans KR',sans-serif;transition:border-color .2s;}
+  .sw input:focus{outline:none;border-color:var(--accent);}
+  .sw::after{content:'🔍';position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;}
+  select.fs{padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--dim);font-size:13px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;}
+  select.fs:focus{outline:none;border-color:var(--accent);}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:500;font-family:'Noto Sans KR',sans-serif;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;}
+  .bp{background:var(--accent);color:#fff;} .bp:hover{background:#e04400;}
+  .bs{background:var(--surface2);border:1px solid var(--border);color:var(--dim);} .bs:hover{border-color:var(--accent);color:var(--accent);}
+  .bg{background:var(--green);color:#fff;}
+  .br{background:var(--red);color:#fff;}
+  .btn-sm{padding:5px 11px;font-size:12px;}
+  .btn-outline-red{background:transparent;border:1px solid var(--red);color:var(--red);} .btn-outline-red:hover{background:var(--red);color:#fff;}
+
+  /* TABLE */
+  .tw{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow-x:auto;overflow-y:hidden;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead tr{background:var(--surface2);border-bottom:1px solid var(--border);}
+  th{padding:11px 13px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+  td{padding:10px 13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:rgba(255,255,255,.018);}
+  .mono{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent2);}
+
+  .sb{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+  .s-ok{background:rgba(34,197,94,.13);color:var(--green);}
+  .s-low{background:rgba(245,158,11,.13);color:var(--yellow);}
+  .s-out{background:rgba(239,68,68,.13);color:var(--red);}
+  .type-in{background:rgba(34,197,94,.12);color:var(--green);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+  .type-out{background:rgba(239,68,68,.12);color:var(--red);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+
+  /* MODAL */
+  .overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:20px;}
+  .overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:660px;max-height:90vh;overflow-y:auto;animation:slideUp .22s ease;}
+  @keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+  .mh{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1;}
+  .mt{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;}
+  .mc{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;} .mc:hover{color:var(--accent);}
+  .mb{padding:22px;}
+  .mf{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+  .fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .fg .full{grid-column:1/-1;}
+  .fl{display:flex;flex-direction:column;gap:5px;}
+  .fl label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .fl input,.fl select,.fl textarea{padding:8px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:'Noto Sans KR',sans-serif;transition:border-color .2s;}
+  .fl input:focus,.fl select:focus,.fl textarea:focus{outline:none;border-color:var(--accent);}
+  .fl textarea{resize:vertical;min-height:64px;}
+
+  /* INOUT CARDS */
+  .inout-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .io-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;}
+  .io-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:18px;}
+  .fl+.fl{margin-top:12px;}
+
+  /* LOW STOCK GRID */
+  .lsg{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;}
+  .lc{background:var(--surface);border:1px solid rgba(245,158,11,.28);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:7px;}
+  .lc-top{display:flex;justify-content:space-between;align-items:flex-start;}
+  .lc-name{font-weight:700;font-size:14px;}
+  .lc-pn{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+  .lc-row{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);}
+  .lc-v{font-weight:700;color:var(--yellow);}
+
+  /* ALERTS */
+  .alert-bar{position:fixed;top:62px;right:18px;z-index:999;display:flex;flex-direction:column;gap:7px;pointer-events:none;}
+  .alert{padding:11px 16px;border-radius:8px;font-size:13px;font-weight:500;animation:aIn .25s ease;pointer-events:all;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.4);}
+  .a-ok{background:#052e16;border:1px solid var(--green);color:var(--green);}
+  .a-err{background:#1c0505;border:1px solid var(--red);color:var(--red);}
+  .a-info{background:#03193a;border:1px solid var(--blue);color:var(--blue);}
+  @keyframes aIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+  /* ACTION BAR */
+  .action-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;}
+
+  /* EMPTY */
+  .empty{text-align:center;padding:50px 20px;color:var(--muted);}
+  .empty .big{font-size:44px;margin-bottom:10px;}
+
+  /* DASH DOUBLE */
+  .dash2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .card-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+
+  /* DELETE CONFIRM */
+  .del-confirm{background:var(--surface2);border:1px solid var(--red);border-radius:8px;padding:14px 16px;margin-top:8px;font-size:13px;display:none;}
+
+  /* DATA MODAL */
+  .data-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;}
+  .data-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s;}
+  .data-card:hover{border-color:var(--accent);}
+  .data-card-icon{font-size:28px;}
+  .data-card-title{font-weight:700;font-size:14px;}
+  .data-card-desc{font-size:12px;color:var(--muted);line-height:1.6;}
+  .drop-zone{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;transition:all .2s;}
+  .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);color:var(--accent);background:rgba(255,77,0,.04);}
+
+  /* QR MODAL */
+  .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 0;}
+  .qr-canvas{border-radius:10px;background:#fff;padding:12px;}
+  .qr-info{text-align:center;font-size:13px;color:var(--dim);}
+  .qr-select{width:100%;padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:'Noto Sans KR',sans-serif;}
+  .qr-select:focus{outline:none;border-color:var(--accent);}
+
+  @media(max-width:768px){
+    .sidebar{display:none}.main{margin-left:0}
+    .stats{grid-template-columns:1fr 1fr}.inout-grid{grid-template-columns:1fr}.fg{grid-template-columns:1fr}
+    .data-grid{grid-template-columns:1fr;}
+  }
+
+  /* ── TAB NAV ── */
+  .bottom-nav {
+    display: none;
+    position: fixed;
+    top: 48px;
+    left: 0; right: 0;
+    z-index: 99;
+    background: #0d0d0d;
+    border-bottom: 1px solid #333;
+  }
+  .bottom-nav-inner {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .bottom-nav-inner::-webkit-scrollbar { display: none; }
+  .bn-item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    cursor: pointer;
+    color: #666;
+    font-size: 10px;
+    white-space: nowrap;
+    border: none;
+    background: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    border-bottom: 2px solid transparent;
+    transition: color .15s;
+  }
+  .bn-item.active { color: #ff4d00; border-bottom: 2px solid #ff4d00; }
+  .bn-icon { font-size: 18px; line-height: 1; }
+  .bn-badge {
+    background: #ef4444; color: #fff;
+    font-size: 9px; font-weight: 700;
+    padding: 1px 5px; border-radius: 10px;
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none !important; }
+    .bottom-nav { display: block !important; }
+    .layout { padding-top: calc(48px + 43px) !important; }
+    .main { margin-left: 0 !important; padding: 16px !important; }
+    .stats { grid-template-columns: 1fr 1fr !important; }
+    .inout-grid { grid-template-columns: 1fr !important; }
+    .fg { grid-template-columns: 1fr !important; }
+    .data-grid { grid-template-columns: 1fr !important; }
+    .dash2 { grid-template-columns: 1fr !important; }
+    .tw { overflow-x: auto !important; }
+    body { overflow-x: hidden !important; }
+    .tb { flex-direction: column !important; }
+    table { font-size: 11px; }
+    th, td { padding: 8px 6px !important; }
+    .ph-title { font-size: 26px !important; }
+    .action-bar { flex-wrap: wrap !important; }
+  }
+
+
+  /* ── MOBILE CARD LIST ── */
+  .card-list { display: flex; flex-direction: column; gap: 10px; }
+  .part-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .part-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .part-card-name { font-weight: 700; font-size: 15px; }
+  .part-card-pn { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent2); margin-top: 2px; }
+  .part-card-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 10px; }
+  .part-card-row { font-size: 12px; color: var(--dim); }
+  .part-card-row strong { color: var(--text); }
+  .part-card-actions { display: flex; gap: 8px; }
+
+  .log-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .log-card-top { display: flex; justify-content: space-between; align-items: center; }
+  .log-card-name { font-weight: 600; font-size: 14px; }
+  .log-card-meta { display: flex; gap: 12px; font-size: 12px; color: var(--dim); }
+  .log-card-note { font-size: 12px; color: var(--muted); }
+
+
+  /* ── SEARCHABLE PART SELECT ── */
+  .part-search-wrap { position: relative; }
+  .part-search-input {
+    width: 100%; padding: 9px 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; color: var(--text); font-size: 13px;
+    font-family: 'Noto Sans KR', sans-serif; transition: border-color .2s;
+    cursor: pointer;
+  }
+  .part-search-input:focus { outline: none; border-color: var(--accent); }
+  .part-search-input.selected { border-color: var(--accent); color: var(--text); }
+  .part-dropdown {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--surface); border: 1px solid var(--accent);
+    border-radius: 8px; z-index: 300; overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .part-dropdown.open { display: block; }
+  .part-dropdown-search {
+    width: 100%; padding: 10px 12px; background: var(--surface2);
+    border: none; border-bottom: 1px solid var(--border);
+    color: var(--text); font-size: 13px; font-family: 'Noto Sans KR', sans-serif;
+  }
+  .part-dropdown-search:focus { outline: none; }
+  .part-dropdown-list { max-height: 220px; overflow-y: auto; }
+  .part-dropdown-item {
+    padding: 10px 14px; cursor: pointer; font-size: 13px;
+    border-bottom: 1px solid var(--border); transition: background .1s;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .part-dropdown-item:last-child { border-bottom: none; }
+  .part-dropdown-item:hover, .part-dropdown-item.focused { background: rgba(255,77,0,.1); }
+  .part-dropdown-item .pdi-name { font-weight: 600; color: var(--text); }
+  .part-dropdown-item .pdi-sub { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .part-dropdown-item .pdi-stock { font-size: 11px; }
+  .part-dropdown-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+
+  /* ── QUOTE PAGE ── */
+  .quote-layout { display: grid; grid-template-columns: 1fr 360px; gap: 20px; align-items: start; }
+  .quote-form-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .quote-section-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .quote-item-row { display: grid; grid-template-columns: 1fr 60px 90px 28px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .quote-item-row input, .quote-item-row select { padding: 7px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px; font-family: 'Noto Sans KR', sans-serif; width: 100%; }
+  .quote-item-row input:focus, .quote-item-row select:focus { outline: none; border-color: var(--accent); }
+  .quote-del-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer; width: 28px; height: 32px; font-size: 14px; transition: all .15s; }
+  .quote-del-btn:hover { border-color: var(--red); color: var(--red); }
+  .quote-total { background: var(--surface2); border-radius: 8px; padding: 14px; margin-top: 12px; }
+  .quote-total-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+  .quote-total-row.grand { font-size: 16px; font-weight: 700; color: var(--accent); border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
+
+  /* ── PRINT STYLES ── */
+  @media print {
+    body > *:not(.quote-preview-overlay) { display: none !important; }
+    .quote-preview-overlay { display: block !important; position: fixed !important; inset: 0 !important; }
+    .quote-preview-topbar { display: none !important; }
+    @page { size: A4; margin: 15mm; }
+  }
+
+  /* PRINT AREA (hidden on screen) */
+  #printArea { display: none; }
+
+  @media (max-width: 768px) {
+    .quote-layout { grid-template-columns: 1fr; }
+    .quote-item-row { grid-template-columns: 1fr 50px 80px 28px; }
+  }
+
+
+  /* 견적서 미리보기 모달 */
+  .quote-preview-overlay {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: #f0f0f0; overflow-y: auto;
+  }
+  .quote-preview-overlay.open { display: block; }
+  .quote-preview-topbar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; gap: 10px; padding: 10px 14px;
+    background: #111; border-bottom: 2px solid #333;
+  }
+  .quote-preview-topbar button {
+    padding: 10px 16px; border: none; border-radius: 8px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .qpb-print { background: #ff4d00; color: #fff; flex: 1; }
+  .qpb-close { background: #444; color: #fff; }
+  /* 견적서 미리보기 - A4 비율로 표시 */
+  #quotePreviewBody {
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+    background: #e8e8e8;
+    min-height: calc(100vh - 56px);
+  }
+  #quotePreviewBody > div {
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    border-radius: 2px;
+    /* A4 비율: 210mm x 297mm = 1:1.414 */
+    width: 100%;
+    max-width: 680px;
+    min-height: 0;
+    padding: 10mm 12mm !important;
+    box-sizing: border-box;
+    font-size: 10pt;
+  }
+  @media print {
+    body > *:not(.quote-preview-overlay) { display: none !important; }
+    .quote-preview-overlay { display: block !important; position: fixed !important; inset: 0 !important; background: #fff !important; }
+    .quote-preview-topbar { display: none !important; }
+    #quotePreviewBody {
+      padding: 0 !important;
+      background: #fff !important;
+      display: block !important;
+    }
+    #quotePreviewBody > div {
+      width: 210mm !important;
+      max-width: none !important;
+      padding: 15mm !important;
+      box-shadow: none !important;
+      font-size: 10pt !important;
+    }
+    @page { size: A4; margin: 0; }
+  }
+
+</style>
+</head>
+<body>
+
+<div class="alert-bar" id="alertBar"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>MOTO<span>STOCK</span></div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+  <nav class="sidebar">
+    <div style="padding:0 0 16px;">
+      <div class="nav-label">메뉴</div>
+      <div class="nav-item active" id="nav-dash" onclick="show('dash')"><span>📊</span> 대시보드</div>
+      <div class="nav-item" id="nav-parts" onclick="show('parts')"><span>🔩</span> 부품 목록</div>
+      <div class="nav-item" id="nav-stock" onclick="show('stock')"><span>📦</span> 재고 현황</div>
+      <div class="nav-item" id="nav-low" onclick="show('low')">
+        <span>⚠</span> 부족 재고
+        <span class="badge" id="lowBadge" style="display:none">0</span>
+      </div>
+      <div class="nav-item" id="nav-inout" onclick="show('inout')"><span>↕</span> 입출고 처리</div>
+      <div class="nav-item" id="nav-log" onclick="show('log')"><span>📋</span> 입출고 기록</div>
+      <div class="nav-item" id="nav-quote" onclick="show('quote')"><span>📄</span> 견적서</div>
+    </div>
+    <div style="padding:16px;border-top:1px solid var(--border);margin-top:8px;">
+      <div style="font-size:11px;color:var(--muted);line-height:1.7">
+        💾 브라우저 자동저장<br>
+        <span style="color:var(--dim)" id="storageInfo"></span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dash">
+      <div class="ph"><div class="ph-title">대시<span>보드</span></div><div class="ph-sub" id="dashDate"></div></div>
+      <div class="action-bar">
+        <div class="save-status" style="margin-right:auto"><div class="save-dot" id="saveDot2"></div><span id="saveLabel2">자동저장 켜짐</span></div>
+        <button class="export-btn" onclick="openDataModal()">📂 데이터 관리</button>
+      </div>
+      <div class="stats">
+        <div class="stat" style="--c:var(--accent)"><div class="stat-lbl">총 부품 종류</div><div class="stat-val" id="s1">0</div><div class="stat-desc">등록된 부품</div></div>
+        <div class="stat" style="--c:var(--accent);cursor:pointer;transition:transform .15s,box-shadow .15s" onclick="show('parts');setTimeout(()=>openPart(),100)" onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(255,77,0,.2)'" onmouseleave="this.style.transform='';this.style.boxShadow=''">
+          <div class="stat-lbl">부품 등록</div>
+          <div class="stat-val" style="font-size:52px;line-height:1">+</div>
+          <div class="stat-desc">새 부품 추가하기</div>
+        </div>
+        <div class="stat" style="--c:var(--yellow)"><div class="stat-lbl">부족 재고</div><div class="stat-val" id="s3">0</div><div class="stat-desc">최소수량 미달</div></div>
+        <div class="stat" style="--c:var(--green)"><div class="stat-lbl">오늘 입출고</div><div class="stat-val" id="s4">0</div><div class="stat-desc">건수</div></div>
+      </div>
+      <div class="dash2">
+        <div><div class="card-title">최근 입출고</div>
+          <div class="tw"><table><thead><tr><th>날짜</th><th>구분</th><th>품명</th><th>수량</th></tr></thead><tbody id="dLog"></tbody></table></div>
+        </div>
+        <div><div class="card-title">부족 재고 TOP 5</div>
+          <div class="tw"><table><thead><tr><th>품명</th><th>현재고</th><th>최소</th></tr></thead><tbody id="dLow"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARTS -->
+    <div class="page" id="page-parts">
+      <div class="ph"><div class="ph-title">부품 <span>목록</span></div><div class="ph-sub">Parts Master — 부품 등록 및 관리</div></div>
+      <div class="tb">
+        <div class="sw"><input id="pSearch" placeholder="품명, 품번, 메이커 검색..." oninput="renderParts()"></div>
+        <select class="fs" id="pMaker" onchange="renderParts()"><option value="">전체 메이커</option></select>
+        <button class="btn bp" onclick="openPart()">+ 부품 등록</button>
+      </div>
+      <div class="tw" id="partsTableWrap"><table>
+        <thead><tr><th>ID</th><th>메이커</th><th>모델</th><th>연식</th><th>품번</th><th>품명</th><th>색상</th><th>사용위치</th><th>입고가</th><th>출고가</th><th>최소재고</th><th>보관위치</th><th>메모</th><th>관리</th></tr></thead>
+        <tbody id="partsBody"></tbody>
+      </table></div>
+    </div>
+
+    <!-- STOCK -->
+    <div class="page" id="page-stock">
+      <div class="ph"><div class="ph-title">재고 <span>현황</span></div><div class="ph-sub">현재 보유 재고 수량</div></div>
+      <div class="tb">
+        <div class="sw"><input id="stSearch" placeholder="품명, 품번 검색..." oninput="renderStock()"></div>
+        <select class="fs" id="stStatus" onchange="renderStock()">
+          <option value="">전체 상태</option><option value="ok">정상</option><option value="low">부족</option><option value="out">없음</option>
+        </select>
+      </div>
+      <div class="tw" id="stockTableWrap"><table>
+        <thead><tr><th>품번</th><th>품명</th><th>메이커/모델</th><th>현재고</th><th>최소재고</th><th>상태</th><th>보관위치</th><th>액션</th></tr></thead>
+        <tbody id="stockBody"></tbody>
+      </table></div>
+    </div>
+
+    <!-- INOUT -->
+    <div class="page" id="page-inout">
+      <div class="ph"><div class="ph-title">입출고 <span>처리</span></div><div class="ph-sub">부품 입고 및 출고 등록</div></div>
+      <div class="inout-grid">
+        <div class="io-card">
+          <div class="io-title" style="color:var(--green)">▲ 입고 처리</div>
+          <div class="fl"><label>날짜</label><input type="date" id="inDate"></div>
+          <div class="fl" style="margin-top:12px"><label>부품 선택</label>
+            <div class="part-search-wrap">
+              <input type="text" class="part-search-input" id="inPartDisplay" placeholder="품명 / 품번 / 모델명 검색..." readonly onclick="openPartDropdown('in')" autocomplete="off">
+              <input type="hidden" id="inPart">
+              <div class="part-dropdown" id="inPartDropdown">
+                <input type="text" class="part-dropdown-search" id="inPartSearch" placeholder="🔍 검색..." oninput="filterPartDropdown('in')" autocomplete="off">
+                <div class="part-dropdown-list" id="inPartList"></div>
+              </div>
+            </div>
+          </div>
+          <div class="fl" style="margin-top:12px"><label>수량</label><input type="number" id="inQty" min="1" value="1"></div>
+          <div class="fl" style="margin-top:12px"><label>단가 (원)</label><input type="number" id="inPrice" placeholder="자동입력"></div>
+          <div class="fl" style="margin-top:12px"><label>비고</label><textarea id="inNote" placeholder="공급업체, 발주번호 등"></textarea></div>
+          <button class="btn bg" style="width:100%;justify-content:center;margin-top:16px" onclick="doInOut('입고')">입고 등록</button>
+        </div>
+        <div class="io-card">
+          <div class="io-title" style="color:var(--red)">▼ 출고 처리</div>
+          <div class="fl"><label>날짜</label><input type="date" id="outDate"></div>
+          <div class="fl" style="margin-top:12px"><label>부품 선택</label>
+            <div class="part-search-wrap">
+              <input type="text" class="part-search-input" id="outPartDisplay" placeholder="품명 / 품번 / 모델명 검색..." readonly onclick="openPartDropdown('out')" autocomplete="off">
+              <input type="hidden" id="outPart">
+              <div class="part-dropdown" id="outPartDropdown">
+                <input type="text" class="part-dropdown-search" id="outPartSearch" placeholder="🔍 검색..." oninput="filterPartDropdown('out')" autocomplete="off">
+                <div class="part-dropdown-list" id="outPartList"></div>
+              </div>
+            </div>
+          </div>
+          <div class="fl" style="margin-top:12px"><label>수량</label><input type="number" id="outQty" min="1" value="1"></div>
+          <div class="fl" style="margin-top:12px"><label>단가 (원)</label><input type="number" id="outPrice" placeholder="자동입력"></div>
+          <div class="fl" style="margin-top:12px"><label>비고 (고객명 / 차량번호 / 작업내용)</label><textarea id="outNote" placeholder="예: 홍길동 / 서울가1234 / 엔진오일 교체"></textarea></div>
+          <button class="btn br" style="width:100%;justify-content:center;margin-top:16px" onclick="doInOut('출고')">출고 등록</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="page" id="page-log">
+      <div class="ph"><div class="ph-title">입출고 <span>기록</span></div><div class="ph-sub">전체 입출고 이력</div></div>
+      <div class="tb">
+        <div class="sw"><input id="lgSearch" placeholder="품명, 비고 검색..." oninput="renderLog()"></div>
+        <select class="fs" id="lgType" onchange="renderLog()"><option value="">전체</option><option value="입고">입고</option><option value="출고">출고</option></select>
+        <input type="date" id="lgFrom" onchange="renderLog()" style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--dim);font-size:13px;">
+        <span style="color:var(--muted);font-size:13px">~</span>
+        <input type="date" id="lgTo" onchange="renderLog()" style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--dim);font-size:13px;">
+      </div>
+      <div class="tw" id="logTableWrap"><table>
+        <thead><tr><th>로그ID</th><th>날짜</th><th>구분</th><th>품번</th><th>품명</th><th>수량</th><th>단가</th><th>금액</th><th>비고</th><th>삭제</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table></div>
+    </div>
+
+
+    <!-- QUOTE -->
+    <div class="page" id="page-quote">
+      <div class="ph"><div class="ph-title"><span>견적서</span></div><div class="ph-sub">부품 견적서 작성 및 출력</div></div>
+      <div class="quote-layout">
+
+        <!-- 왼쪽: 입력 폼 -->
+        <div>
+          <!-- 업체 정보 -->
+          <div class="quote-form-card" style="margin-bottom:16px">
+            <div class="quote-section-title">🏪 업체 정보</div>
+            <div class="fg">
+              <div class="fl"><label>업체명</label><input id="qCompany" placeholder="○○ 오토바이 센터"></div>
+              <div class="fl"><label>연락처</label><input id="qPhone" placeholder="010-0000-0000"></div>
+              <div class="fl full"><label>주소</label><input id="qAddress" placeholder="주소 입력"></div>
+            </div>
+          </div>
+
+          <!-- 고객 정보 -->
+          <div class="quote-form-card" style="margin-bottom:16px">
+            <div class="quote-section-title">👤 고객 정보</div>
+            <div class="fg">
+              <div class="fl"><label>고객명</label><input id="qCustomer" placeholder="홍길동"></div>
+              <div class="fl"><label>차량번호</label><input id="qCarNo" placeholder="서울가 1234"></div>
+              <div class="fl"><label>차종</label><input id="qCarModel" placeholder="Honda PCX125"></div>
+              <div class="fl"><label>연식</label><input id="qCarYear" placeholder="2021"></div>
+              <div class="fl"><label>견적일자</label><input type="date" id="qDate"></div>
+            </div>
+          </div>
+
+          <!-- 품목 -->
+          <div class="quote-form-card" style="margin-bottom:16px">
+            <div class="quote-section-title">🔩 견적 품목</div>
+            <div style="display:grid;grid-template-columns:1fr 60px 90px 28px;gap:8px;margin-bottom:6px;">
+              <div style="font-size:11px;color:var(--muted);font-weight:700">품명</div>
+              <div style="font-size:11px;color:var(--muted);font-weight:700">수량</div>
+              <div style="font-size:11px;color:var(--muted);font-weight:700">단가(원)</div>
+              <div></div>
+            </div>
+            <div id="quoteItems"></div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn bs btn-sm" onclick="addQuoteItem()">+ 직접 입력</button>
+              <button class="btn bp btn-sm" onclick="addFromParts()">🔩 부품에서 추가</button>
+            </div>
+            <!-- 부품 선택 드롭다운 -->
+            <div id="quotePartPicker" style="display:none;margin-top:10px">
+              <div class="part-search-wrap">
+                <input type="text" class="part-search-input" id="qPartDisplay" placeholder="품명 / 품번 / 모델명 검색..." readonly onclick="openPartDropdown('qp')" autocomplete="off">
+                <input type="hidden" id="qpPart">
+                <div class="part-dropdown" id="qpPartDropdown">
+                  <input type="text" class="part-dropdown-search" id="qpPartSearch" placeholder="🔍 검색..." oninput="filterPartDropdown('qp')" autocomplete="off">
+                  <div class="part-dropdown-list" id="qpPartList"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 공임 -->
+          <div class="quote-form-card" style="margin-bottom:16px">
+            <div class="quote-section-title">🔧 공임 (작업비)</div>
+            <div id="laborItems"></div>
+            <button class="btn bs btn-sm" style="margin-top:8px" onclick="addLaborItem()">+ 공임 추가</button>
+          </div>
+
+          <!-- 메모 -->
+          <div class="quote-form-card">
+            <div class="quote-section-title">📝 특이사항 / 메모</div>
+            <div class="fl"><textarea id="qMemo" placeholder="작업 내용, 보증 조건 등..." style="min-height:80px"></textarea></div>
+          </div>
+        </div>
+
+        <!-- 오른쪽: 합계 + 버튼 -->
+        <div>
+          <div class="quote-form-card" style="position:sticky;top:100px">
+            <div class="quote-section-title">💰 합계</div>
+            <div class="quote-total">
+              <div class="quote-total-row"><span>부품 소계</span><span id="qSubtotal">0원</span></div>
+              <div class="quote-total-row"><span>공임 소계</span><span id="qLaborTotal">0원</span></div>
+              <div class="quote-total-row" style="border-top:1px solid var(--border);padding-top:6px;margin-top:4px"><span>공급가액</span><span id="qSupply">0원</span></div>
+              <div class="quote-total-row"><span>부가세 (10%)</span><span id="qVat">0원</span></div>
+              <div class="quote-total-row grand"><span>최종 합계</span><span id="qTotal">0원</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+              <button class="btn bp" style="width:100%;justify-content:center" onclick="printQuote()">👁 견적서 미리보기 / 저장</button>
+              <button class="btn bs" style="width:100%;justify-content:center;margin-top:8px" onclick="directPrint()">🖨 바로 인쇄</button>
+              <button class="btn bs" style="width:100%;justify-content:center" onclick="resetQuote()">🔄 초기화</button>
+            </div>
+            <div style="margin-top:12px;font-size:11px;color:var(--muted);line-height:1.7">
+              💡 <strong style="color:var(--text)">미리보기</strong>: 견적서 확인 후 저장<br>
+              💡 <strong style="color:var(--text)">PDF 저장</strong>: 파일 앱 → 다운로드에서 확인<br>
+              💡 <strong style="color:var(--text)">바로 인쇄</strong>: 연결된 프린터로 즉시 출력
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LOW -->
+    <div class="page" id="page-low">
+      <div class="ph"><div class="ph-title">부족 <span>재고</span></div><div class="ph-sub">최소 재고 수량 미달 부품</div></div>
+      <div class="lsg" id="lowGrid"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- PART MODAL -->
+<div class="overlay" id="partModal">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="pmTitle">부품 등록</div><button class="mc" onclick="closeModal()">✕</button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="fl"><label>메이커</label><input id="fMaker" placeholder="Honda, Yamaha..."></div>
+        <div class="fl"><label>모델명</label><input id="fModel" placeholder="CBR600RR, R1..."></div>
+        <div class="fl"><label>연식</label><input id="fYear" placeholder="2020-2023"></div>
+        <div class="fl"><label>품번 *</label><input id="fPartNo" placeholder="12345-ABC"></div>
+        <div class="fl full"><label>품명 *</label><input id="fName" placeholder="에어필터, 브레이크패드..."></div>
+        <div class="fl"><label>사용위치</label><input id="fLoc" placeholder="엔진, 브레이크..."></div>
+        <div class="fl"><label>입고가격 (원)</label><input type="number" id="fIn" placeholder="0"></div>
+        <div class="fl"><label>출고가격 (원)</label><input type="number" id="fOut" placeholder="0"></div>
+        <div class="fl"><label>최소재고수량</label><input type="number" id="fMin" placeholder="5"></div>
+        <div class="fl"><label>보관위치</label><input id="fStore" placeholder="A-01, 창고2-B..."></div>
+        <div class="fl"><label>색상</label><input id="fColor" placeholder="블랙, 실버, 레드..."></div>
+        <div class="fl"><label>📦 초기 재고 수량 (현재 보유중인 수량)</label><input type="number" id="fInitStock" placeholder="예) 10" min="0"></div>
+        <div class="fl full"><label>메모</label><textarea id="fMemo"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="closeModal()">취소</button>
+      <button class="btn bp" onclick="savePart()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// DATA (localStorage)
+// ══════════════════════════════════════
+const LS_PARTS = 'moto_parts';
+const LS_LOGS  = 'moto_logs';
+
+let parts = [];
+let logs  = [];
+let editId = null;
+
+function load(){
+  try{ parts = JSON.parse(localStorage.getItem(LS_PARTS)||'[]'); }catch(e){ parts=[]; }
+  try{ logs  = JSON.parse(localStorage.getItem(LS_LOGS)||'[]');  }catch(e){ logs=[];  }
+}
+
+function save(){
+  localStorage.setItem(LS_PARTS, JSON.stringify(parts));
+  localStorage.setItem(LS_LOGS,  JSON.stringify(logs));
+  flashSave();
+  updateStorageInfo();
+}
+
+function flashSave(){
+  const dot = document.getElementById('saveDot2');
+  const lbl = document.getElementById('saveLabel2');
+  if(dot) dot.style.background='var(--yellow)';
+  if(lbl) lbl.textContent='저장 중...';
+  setTimeout(()=>{ if(dot) dot.style.background='var(--green)'; if(lbl) lbl.textContent='자동저장 완료'; },600);
+  setTimeout(()=>{ if(lbl) lbl.textContent='자동저장 켜짐'; },2500);
+}
+
+function updateStorageInfo(){
+  const b = new Blob([localStorage.getItem(LS_PARTS)||'', localStorage.getItem(LS_LOGS)||'']).size;
+  document.getElementById('storageInfo').textContent = `부품 ${parts.length}개 · 기록 ${logs.length}건\n${(b/1024).toFixed(1)} KB 사용 중`;
+}
+
+// ══════════════════════════════════════
+// STOCK CALC
+// ══════════════════════════════════════
+function calcStock(partNo){
+  return logs.filter(l=>l.partNo===partNo).reduce((s,l)=> l.type==='입고' ? s+l.qty : s-l.qty, 0);
+}
+function getStock(p){ return calcStock(p.partNo); }
+function status(p){
+  const s = getStock(p);
+  if(s<=0) return 'out';
+  if(s<=p.minStock) return 'low';
+  return 'ok';
+}
+function sbadge(p){
+  const s=status(p), stock=getStock(p);
+  const lbl={ok:'정상',low:'부족',out:'없음'}[s];
+  return `<span class="sb s-${s}">${stock} ${lbl}</span>`;
+}
+
+// ══════════════════════════════════════
+// RENDER UI
+// ══════════════════════════════════════
+function renderAll(){
+  renderDash(); renderParts(); renderStock(); renderLog(); renderLow();
+  fillPartSelects(); updateLowBadge();
+}
+
+function renderDash(){
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('dashDate').textContent = new Date().toLocaleDateString('ko-KR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const totalStock = parts.reduce((s,p)=>s+getStock(p),0);
+  const lowCount   = parts.filter(p=>status(p)!=='ok').length;
+  const todayCount = logs.filter(l=>l.date===today).length;
+  document.getElementById('s1').textContent = parts.length;
+  document.getElementById('s3').textContent = lowCount;
+  document.getElementById('s4').textContent = todayCount;
+
+  // recent 5
+  const rec=[...logs].reverse().slice(0,5);
+  document.getElementById('dLog').innerHTML = rec.length
+    ? rec.map(l=>{ const p=parts.find(x=>x.partNo===l.partNo);
+        return `<tr><td>${l.date}</td><td><span class="type-${l.type==='입고'?'in':'out'}">${l.type}</span></td><td>${p?p.name:l.partNo}</td><td>${l.qty}</td></tr>`;
+      }).join('')
+    : `<tr><td colspan="4" class="empty" style="padding:20px">기록 없음</td></tr>`;
+
+  // top low
+  const tl=[...parts].filter(p=>status(p)!=='ok').sort((a,b)=>getStock(a)-getStock(b)).slice(0,5);
+  document.getElementById('dLow').innerHTML = tl.length
+    ? tl.map(p=>`<tr><td>${p.name}</td><td style="color:${getStock(p)<=0?'var(--red)':'var(--yellow)'}">${getStock(p)}</td><td>${p.minStock}</td></tr>`).join('')
+    : `<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--green)">✓ 부족 없음</td></tr>`;
+}
+
+function renderParts(){
+  const q=(document.getElementById('pSearch').value||'').toLowerCase();
+  const mk=document.getElementById('pMaker').value;
+  const makers=[...new Set(parts.map(p=>p.maker).filter(Boolean))];
+  const sel=document.getElementById('pMaker'), cur=sel.value;
+  sel.innerHTML='<option value="">전체 메이커</option>'+makers.map(m=>`<option value="${m}"${m===cur?' selected':''}>${m}</option>`).join('');
+  let list=parts;
+  if(q) list=list.filter(p=>(p.name+p.partNo+p.maker+p.model).toLowerCase().includes(q));
+  if(mk) list=list.filter(p=>p.maker===mk);
+  const isMobile = window.innerWidth <= 768;
+  if(isMobile){
+    // 카드형
+    const wrap = document.getElementById('partsTableWrap');
+    wrap.style.display='none';
+    let cards = document.getElementById('partsCards');
+    if(!cards){ cards=document.createElement('div'); cards.id='partsCards'; cards.className='card-list'; wrap.parentNode.insertBefore(cards, wrap.nextSibling); }
+    cards.style.display='flex';
+    cards.innerHTML = list.length
+      ? list.map(p=>`
+        <div class="part-card">
+          <div class="part-card-top">
+            <div>
+              <div class="part-card-name">${p.name}</div>
+              <div class="part-card-pn">${p.partNo}</div>
+            </div>
+            <span class="sb s-${status(p)}">${getStock(p)} ${({ok:'정상',low:'부족',out:'없음'})[status(p)]}</span>
+          </div>
+          <div class="part-card-meta">
+            <div class="part-card-row">메이커: <strong>${p.maker} ${p.model} ${p.year}</strong></div>
+            <div class="part-card-row">색상: <strong>${p.color||'--'}</strong></div>
+            <div class="part-card-row">사용위치: <strong>${p.location||'--'}</strong></div>
+            <div class="part-card-row">보관위치: <strong>${p.storage||'--'}</strong></div>
+            <div class="part-card-row">입고가: <strong>${Number(p.inPrice).toLocaleString()}원</strong></div>
+            <div class="part-card-row">출고가: <strong>${Number(p.outPrice).toLocaleString()}원</strong></div>
+            <div class="part-card-row">최소재고: <strong>${p.minStock}개</strong></div>
+          </div>
+          <div class="part-card-actions">
+            <button class="btn bs btn-sm" style="flex:1" onclick="openPart('${p.id}')">✏ 수정</button>
+            <button class="btn btn-outline-red btn-sm" style="flex:1" onclick="deletePart('${p.id}')">🗑 삭제</button>
+          </div>
+        </div>`).join('')
+      : `<div class="empty"><div class="big">🔩</div><p>등록된 부품이 없습니다<br><button class="btn bp" style="margin-top:10px" onclick="openPart()">+ 첫 부품 등록</button></p></div>`;
+  } else {
+    const wrap = document.getElementById('partsTableWrap');
+    wrap.style.display='';
+    const cards = document.getElementById('partsCards');
+    if(cards) cards.style.display='none';
+    document.getElementById('partsBody').innerHTML = list.length
+      ? list.map(p=>`<tr>
+          <td class="mono">${p.id}</td>
+          <td>${p.maker}</td><td>${p.model}</td><td>${p.year}</td>
+          <td class="mono">${p.partNo}</td>
+          <td><strong>${p.name}</strong></td>
+          <td style="color:var(--dim)">${p.color||'-'}</td>
+          <td style="color:var(--dim)">${p.location}</td>
+          <td class="mono">${Number(p.inPrice).toLocaleString()}원</td>
+          <td class="mono">${Number(p.outPrice).toLocaleString()}원</td>
+          <td>${p.minStock}</td>
+          <td style="color:var(--dim)">${p.storage}</td>
+          <td style="color:var(--dim);font-size:12px">${p.memo}</td>
+          <td style="display:flex;gap:6px">
+            <button class="btn bs btn-sm" onclick="openPart('${p.id}')">수정</button>
+            <button class="btn btn-outline-red btn-sm" onclick="deletePart('${p.id}')">삭제</button>
+          </td>
+        </tr>`).join('')
+      : `<tr><td colspan="13"><div class="empty"><div class="big">🔩</div><p>등록된 부품이 없습니다<br><button class="btn bp" style="margin-top:10px" onclick="openPart()">+ 첫 부품 등록</button></p></div></td></tr>`;
+  }
+}
+
+function renderStock(){
+  const q=(document.getElementById('stSearch').value||'').toLowerCase();
+  const st=document.getElementById('stStatus').value;
+  let list=parts;
+  if(q) list=list.filter(p=>(p.name+p.partNo).toLowerCase().includes(q));
+  if(st) list=list.filter(p=>status(p)===st);
+  const isMobile = window.innerWidth <= 768;
+  if(isMobile){
+    const wrap = document.getElementById('stockTableWrap');
+    wrap.style.display='none';
+    let cards = document.getElementById('stockCards');
+    if(!cards){ cards=document.createElement('div'); cards.id='stockCards'; cards.className='card-list'; wrap.parentNode.insertBefore(cards, wrap.nextSibling); }
+    cards.style.display='flex';
+    cards.innerHTML = list.length
+      ? list.map(p=>`
+        <div class="part-card" style="border-left:3px solid ${status(p)==='ok'?'var(--green)':status(p)==='low'?'var(--yellow)':'var(--red)'}">
+          <div class="part-card-top">
+            <div>
+              <div class="part-card-name">${p.name}</div>
+              <div class="part-card-pn">${p.partNo} · ${p.maker} ${p.model}</div>
+            </div>
+            <span class="sb s-${status(p)}">${getStock(p)}개</span>
+          </div>
+          <div class="part-card-meta">
+            <div class="part-card-row">사용위치: <strong>${p.location||'-'}</strong></div>
+            <div class="part-card-row">색상: <strong>${p.color||'-'}</strong></div>
+            <div class="part-card-row">보관위치: <strong>${p.storage||'-'}</strong></div>
+            <div class="part-card-row">최소재고: <strong>${p.minStock}개</strong></div>
+            <div class="part-card-row">출고가: <strong>${Number(p.outPrice).toLocaleString()}원</strong></div>
+          </div>
+          <div class="part-card-actions">
+            <button class="btn bp btn-sm" style="flex:1" onclick="quickInOut('${p.partNo}')">↕ 입출고</button>
+            <button class="btn bs btn-sm" style="flex:1" onclick="openAdjust('${p.partNo}')">🔧 재고조정</button>
+          </div>
+        </div>`).join('')
+      : `<div class="empty"><div class="big">📦</div><p>재고 없음</p></div>`;
+  } else {
+    const wrap = document.getElementById('stockTableWrap');
+    wrap.style.display='';
+    const cards = document.getElementById('stockCards');
+    if(cards) cards.style.display='none';
+    document.getElementById('stockBody').innerHTML = list.length
+      ? list.map(p=>`<tr>
+          <td class="mono">${p.partNo}</td>
+          <td><strong>${p.name}</strong></td>
+          <td style="color:var(--dim)">${p.maker} ${p.model}</td>
+          <td>${sbadge(p)}</td>
+          <td style="color:var(--dim)">${p.minStock}</td>
+          <td><span class="sb s-${status(p)}">${{ok:'✓ 정상',low:'⚠ 부족',out:'✕ 없음'}[status(p)]}</span></td>
+          <td style="color:var(--dim)">${p.storage}</td>
+          <td style="display:flex;gap:6px"><button class="btn bp btn-sm" onclick="quickInOut('${p.partNo}')">입출고</button><button class="btn bs btn-sm" onclick="openAdjust('${p.partNo}')">재고조정</button></td>
+        </tr>`).join('')
+      : `<tr><td colspan="8"><div class="empty"><div class="big">📦</div><p>재고 없음</p></div></td></tr>`;
+  }
+}
+
+function renderLog(){
+  const q=(document.getElementById('lgSearch').value||'').toLowerCase();
+  const tp=document.getElementById('lgType').value;
+  const fr=document.getElementById('lgFrom').value;
+  const to=document.getElementById('lgTo').value;
+  let list=[...logs].reverse();
+  if(q) list=list.filter(l=>{ const p=parts.find(x=>x.partNo===l.partNo); return (l.note+(p?p.name:l.partNo)).toLowerCase().includes(q); });
+  if(tp) list=list.filter(l=>l.type===tp);
+  if(fr) list=list.filter(l=>l.date>=fr);
+  if(to) list=list.filter(l=>l.date<=to);
+
+  const isMobile = window.innerWidth <= 768;
+  if(isMobile){
+    const wrap = document.getElementById('logTableWrap');
+    wrap.style.display='none';
+    let cards = document.getElementById('logCards');
+    if(!cards){ cards=document.createElement('div'); cards.id='logCards'; cards.className='card-list'; wrap.parentNode.insertBefore(cards, wrap.nextSibling); }
+    cards.style.display='flex';
+    cards.innerHTML = list.length
+      ? list.map(l=>{ const p=parts.find(x=>x.partNo===l.partNo);
+          return `<div class="log-card">
+            <div class="log-card-top">
+              <div>
+                <span class="type-${l.type==='입고'?'in':'out'}">${l.type}</span>
+                <span class="log-card-name" style="margin-left:8px">${p?p.name:l.partNo}</span>
+              </div>
+              <span style="font-size:12px;color:var(--dim)">${l.date}</span>
+            </div>
+            <div class="log-card-meta">
+              <span>수량: <strong style="color:var(--text)">${l.qty}개</strong></span>
+              <span>단가: <strong style="color:var(--text)">${Number(l.price).toLocaleString()}원</strong></span>
+              <span>합계: <strong style="color:var(--accent2)">${(l.qty*l.price).toLocaleString()}원</strong></span>
+            </div>
+            ${l.note?`<div class="log-card-note">📝 ${l.note}</div>`:''}
+            <button class="btn btn-outline-red btn-sm" style="align-self:flex-end;margin-top:4px" onclick="deleteLog('${l.id}')">삭제</button>
+          </div>`;
+        }).join('')
+      : `<div class="empty"><div class="big">📋</div><p>기록 없음</p></div>`;
+    return;
+  }
+  const wrap2 = document.getElementById('logTableWrap');
+  if(wrap2) wrap2.style.display='';
+  const lc = document.getElementById('logCards');
+  if(lc) lc.style.display='none';
+  document.getElementById('logBody').innerHTML = list.length
+    ? list.map(l=>{ const p=parts.find(x=>x.partNo===l.partNo);
+        return `<tr>
+          <td class="mono" style="font-size:11px">${l.id}</td>
+          <td>${l.date}</td>
+          <td><span class="type-${l.type==='입고'?'in':'out'}">${l.type}</span></td>
+          <td class="mono">${l.partNo}</td>
+          <td>${p?p.name:'-'}</td>
+          <td style="text-align:right">${l.qty}</td>
+          <td class="mono" style="text-align:right">${Number(l.price).toLocaleString()}</td>
+          <td class="mono" style="text-align:right">${(l.qty*l.price).toLocaleString()}원</td>
+          <td style="color:var(--dim);font-size:12px">${l.note}</td>
+          <td><button class="btn btn-outline-red btn-sm" onclick="deleteLog('${l.id}')">삭제</button></td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="10"><div class="empty"><div class="big">📋</div><p>기록 없음</p></div></td></tr>`;
+}
+
+function renderLow(){
+  const low=parts.filter(p=>status(p)!=='ok');
+  const grid=document.getElementById('lowGrid');
+  if(!low.length){
+    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="big">✅</div><p>모든 부품이 최소 재고 이상입니다!</p></div>`;
+    return;
+  }
+  grid.innerHTML=low.map(p=>{
+    const s=getStock(p);
+    return `<div class="lc">
+      <div class="lc-top"><div><div class="lc-name">${p.name}</div><div class="lc-pn">${p.partNo}</div></div>
+      <span class="sb s-${status(p)}">${s<=0?'없음':'부족'}</span></div>
+      <div class="lc-row"><span>${p.maker} ${p.model}</span><span style="color:var(--muted)">${p.storage}</span></div>
+      <div class="lc-row"><span>현재고</span><span class="lc-v">${s}개</span></div>
+      <div class="lc-row"><span>최소재고</span><span>${p.minStock}개</span></div>
+      <button class="btn bs btn-sm" style="margin-top:4px" onclick="quickIn('${p.partNo}')">+ 입고 처리</button>
+    </div>`;
+  }).join('');
+}
+
+function updateLowBadge(){
+  const n=parts.filter(p=>status(p)!=='ok').length;
+  const b=document.getElementById('lowBadge');
+  b.textContent=n; b.style.display=n?'':'none';
+}
+
+// ══════════════════════════════════════
+// PART CRUD
+// ══════════════════════════════════════
+function openPart(id=null){
+  editId=id;
+  document.getElementById('pmTitle').textContent=id?'부품 수정':'부품 등록';
+  const f=['Maker','Model','Year','PartNo','Name','Loc','In','Out','Min','Store','Memo'];
+  if(id){
+    const p=parts.find(x=>x.id===id); if(!p) return;
+    document.getElementById('fMaker').value=p.maker;
+    document.getElementById('fModel').value=p.model;
+    document.getElementById('fYear').value=p.year;
+    document.getElementById('fPartNo').value=p.partNo;
+    document.getElementById('fName').value=p.name;
+    document.getElementById('fLoc').value=p.location;
+    document.getElementById('fIn').value=p.inPrice;
+    document.getElementById('fOut').value=p.outPrice;
+    document.getElementById('fMin').value=p.minStock;
+    document.getElementById('fStore').value=p.storage;
+    document.getElementById('fMemo').value=p.memo;
+    document.getElementById('fColor').value=p.color||'';
+    document.getElementById('fInitStock').value='';
+    document.getElementById('fInitStock').placeholder='현재고: '+getStock(p)+'개 (변경 불가)';
+    document.getElementById('fInitStock').disabled=true;
+  } else {
+    ['Maker','Model','Year','PartNo','Name','Loc','In','Out','Min','Store','Memo'].forEach(k=>document.getElementById('f'+k).value='');
+    const fc=document.getElementById('fColor'); if(fc) fc.value='';
+    document.getElementById('fInitStock').value='';
+    document.getElementById('fInitStock').placeholder='0';
+    document.getElementById('fInitStock').disabled=false;
+  }
+  document.getElementById('partModal').classList.add('open');
+}
+
+function closeModal(){ document.getElementById('partModal').classList.remove('open'); }
+
+function savePart(){
+  const partNo=document.getElementById('fPartNo').value.trim();
+  const name=document.getElementById('fName').value.trim();
+  if(!partNo||!name){ toast('품번과 품명은 필수입니다.','err'); return; }
+
+  // check duplicate partNo (except self)
+  const dup=parts.find(p=>p.partNo===partNo && p.id!==editId);
+  if(dup){ toast('이미 등록된 품번입니다.','err'); return; }
+
+  const initStock=Number(document.getElementById('fInitStock').value)||0;
+  const data={
+    maker:document.getElementById('fMaker').value.trim(),
+    model:document.getElementById('fModel').value.trim(),
+    year:document.getElementById('fYear').value.trim(),
+    partNo, name,
+    location:document.getElementById('fLoc').value.trim(),
+    inPrice:Number(document.getElementById('fIn').value)||0,
+    outPrice:Number(document.getElementById('fOut').value)||0,
+    minStock:Number(document.getElementById('fMin').value)||0,
+    storage:document.getElementById('fStore').value.trim(),
+    memo:document.getElementById('fMemo').value.trim(),
+    color:document.getElementById('fColor').value.trim(),
+  };
+
+  if(editId){
+    const i=parts.findIndex(p=>p.id===editId);
+    if(i>=0) parts[i]={...parts[i],...data};
+    toast('부품이 수정되었습니다.','ok');
+  } else {
+    const id='P'+String(parts.length+1).padStart(3,'0');
+    parts.push({id,...data});
+    if(initStock>0){
+      const today=new Date().toISOString().slice(0,10);
+      logs.push({id:'L'+Date.now(),date:today,type:'입고',partNo:data.partNo,qty:initStock,price:data.inPrice,note:'초기 재고 등록'});
+    }
+    toast('부품이 등록되었습니다.','ok');
+  }
+  save(); closeModal(); renderAll();
+}
+
+function deletePart(id){
+  const p=parts.find(x=>x.id===id);
+  if(!confirm(`"${p?.name}" 부품을 삭제하시겠습니까?\n(관련 입출고 기록은 유지됩니다)`)) return;
+  parts=parts.filter(x=>x.id!==id);
+  save(); renderAll(); toast('삭제되었습니다.','ok');
+}
+
+// ══════════════════════════════════════
+// IN/OUT
+// ══════════════════════════════════════
+function fillPartSelects(){
+  // 커스텀 드롭다운 방식 사용 - select 불필요
+}
+
+function openPartDropdown(dir){
+  const dd = document.getElementById(dir+'PartDropdown');
+  if(!dd) return;
+  // 다른 드롭다운 닫기
+  ['in','out'].forEach(d=>{ if(d!==dir){ const el=document.getElementById(d+'PartDropdown'); if(el) el.classList.remove('open'); } });
+  dd.classList.toggle('open');
+  if(dd.classList.contains('open')){
+    filterPartDropdown(dir);
+    setTimeout(()=>{ const s=document.getElementById(dir+'PartSearch'); if(s) s.focus(); }, 50);
+  }
+}
+
+function filterPartDropdown(dir){
+  const searchEl = document.getElementById(dir+'PartSearch');
+  const q = searchEl ? searchEl.value.toLowerCase() : '';
+  const list = document.getElementById(dir+'PartList');
+  if(!list) return;
+  const filtered = parts.filter(p=>
+    p.name.toLowerCase().includes(q) ||
+    p.partNo.toLowerCase().includes(q) ||
+    (p.model||'').toLowerCase().includes(q)
+  );
+  if(!filtered.length){
+    list.innerHTML='<div class="part-dropdown-empty">검색 결과 없음</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(p=>{
+    const s = getStock(p);
+    const sc = status(p);
+    const scColor = sc==='ok'?'var(--green)':sc==='low'?'var(--yellow)':'var(--red)';
+    return `<div class="part-dropdown-item" onclick="selectPart('${dir}','${p.partNo}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="pdi-name">${p.name}${p.color?" · "+p.color:""}</span>
+        <span class="pdi-stock" style="color:${scColor}">${s}개</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span class="pdi-sub">${p.partNo} · ${p.model||''} ${p.year||''}</span>
+        <span class="pdi-sub" style="color:var(--dim)">${p.location||''}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectPart(dir, partNo){
+  const p = parts.find(x=>x.partNo===partNo);
+  if(!p) return;
+  const hiddenInput = document.getElementById(dir+'Part');
+  const displayInput = document.getElementById(dir+'PartDisplay');
+  if(hiddenInput) hiddenInput.value = partNo;
+  if(displayInput){ displayInput.value = p.name+'  |  '+p.partNo; displayInput.classList.add('selected'); }
+  const dd = document.getElementById(dir+'PartDropdown');
+  if(dd) dd.classList.remove('open');
+  const s = document.getElementById(dir+'PartSearch');
+  if(s) s.value='';
+  // 단가 자동입력
+  const priceEl = document.getElementById(dir+'Price');
+  if(priceEl) priceEl.value = dir==='in' ? p.inPrice : p.outPrice;
+}
+
+// 드롭다운 외부 클릭 시 닫기
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.part-search-wrap')){
+    document.querySelectorAll('.part-dropdown').forEach(d=>d.classList.remove('open'));
+  }
+});
+
+function autoPrice(dir){
+  const el = document.getElementById(dir+'Part');
+  if(!el) return;
+  const partNo = el.value;
+  const p = parts.find(x=>x.partNo===partNo); if(!p) return;
+  document.getElementById(dir+'Price').value = dir==='in' ? p.inPrice : p.outPrice;
+}
+
+function doInOut(type){
+  const d=type==='입고'?'in':'out';
+  const partNo=document.getElementById(d+'Part').value;
+  const qty=Number(document.getElementById(d+'Qty').value);
+  const price=Number(document.getElementById(d+'Price').value)||0;
+  const note=document.getElementById(d+'Note').value.trim();
+  const date=document.getElementById(d+'Date').value;
+
+  if(!partNo){ toast('부품을 선택해주세요.','err'); return; }
+  // hidden input 동기화 확인
+  if(!qty||qty<1){ toast('수량을 입력해주세요.','err'); return; }
+  if(!date){ toast('날짜를 입력해주세요.','err'); return; }
+
+  const p=parts.find(x=>x.partNo===partNo);
+  if(!p){ toast('부품을 찾을 수 없습니다.','err'); return; }
+  if(type==='출고' && getStock(p)<qty){
+    toast(`재고 부족! 현재 재고: ${getStock(p)}개`,'err'); return;
+  }
+
+  const id='L'+Date.now();
+  logs.push({id, date, type, partNo, qty, price, note});
+  save(); renderAll();
+  // reset form
+  document.getElementById(d+'Qty').value=1;
+  document.getElementById(d+'Note').value='';
+  document.getElementById(d+'Part').value='';
+  document.getElementById(d+'PartDisplay').value='';
+  document.getElementById(d+'PartDisplay').classList.remove('selected');
+  toast(`${type} 완료: ${p.name} ${qty}개`,'ok');
+}
+
+function quickInOut(partNo){ show('inout'); setTimeout(()=>selectPart('in',partNo), 100); }
+function quickIn(partNo){ show('inout'); setTimeout(()=>selectPart('in',partNo), 100); }
+
+function deleteLog(id){
+  if(!confirm('이 기록을 삭제하시겠습니까?\n(재고 수량에 반영됩니다)')) return;
+  logs=logs.filter(l=>l.id!==id);
+  save(); renderAll(); toast('기록이 삭제되었습니다.','ok');
+}
+
+// ══════════════════════════════════════
+// EXPORT / CLEAR
+// ══════════════════════════════════════
+function exportCSV(){
+  if(!parts.length && !logs.length){ toast('내보낼 데이터가 없습니다.','err'); return; }
+  // Parts CSV
+  let csv='=== Parts (부품 목록) ===\n';
+  csv+='ID,메이커,모델명,연식,품번,품명,사용위치,입고가격,출고가격,최소재고,보관위치,메모,현재고\n';
+  csv+=parts.map(p=>[p.id,p.maker,p.model,p.year,p.partNo,p.name,p.location,p.inPrice,p.outPrice,p.minStock,p.storage,p.memo,getStock(p)].map(v=>`"${v}"`).join(',')).join('\n');
+  csv+='\n\n=== StockLog (입출고 기록) ===\n';
+  csv+='로그ID,날짜,구분,품번,품명,수량,단가,비고\n';
+  csv+=logs.map(l=>{ const p=parts.find(x=>x.partNo===l.partNo);
+    return [l.id,l.date,l.type,l.partNo,p?p.name:'',l.qty,l.price,l.note].map(v=>`"${v}"`).join(',');
+  }).join('\n');
+
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`motostock_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  toast('CSV 파일을 내보냈습니다.','ok');
+}
+
+function clearAll(){
+  closeDataModal();
+  setTimeout(()=>{
+    document.getElementById('clearConfirmModal').classList.add('open');
+    document.getElementById('clearInput').value='';
+    document.getElementById('clearConfirmBtn').disabled=true;
+  },200);
+}
+function checkClearInput(){
+  const val=document.getElementById('clearInput').value;
+  const btn=document.getElementById('clearConfirmBtn'); btn.disabled=(val!=='초기화'); btn.style.opacity=(val==='초기화')?'1':'.4';
+}
+function doClearAll(){
+  parts=[]; logs=[];
+  save(); renderAll();
+  document.getElementById('clearConfirmModal').classList.remove('open');
+  toast('모든 데이터가 초기화되었습니다.','ok');
+}
+
+// ══════════════════════════════════════
+// NAV
+// ══════════════════════════════════════
+function show(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.bn-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+  const bn=document.getElementById('bn-'+id); if(bn) bn.classList.add('active');
+  if(id==='inout'){
+    const t=new Date().toISOString().slice(0,10);
+    document.getElementById('inDate').value=t;
+    document.getElementById('outDate').value=t;
+  }
+  window.scrollTo(0,0);
+}
+
+// ══════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════
+function toast(msg, type='ok'){
+  const bar=document.getElementById('alertBar');
+  const el=document.createElement('div');
+  el.className=`alert a-${type==='ok'?'ok':type==='err'?'err':'info'}`;
+  el.innerHTML=`<span>${type==='ok'?'✓':'✕'}</span>${msg}`;
+  bar.appendChild(el);
+  setTimeout(()=>el.remove(), 3200);
+}
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+load();
+renderAll();
+window.addEventListener("resize", ()=>{ renderParts(); renderStock(); renderLog(); });
+updateStorageInfo();
+document.getElementById('dashDate').textContent = new Date().toLocaleDateString('ko-KR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+</script>
+
+
+
+<!-- CLEAR CONFIRM MODAL -->
+<div class="overlay" id="clearConfirmModal">
+  <div class="modal" style="max-width:380px">
+    <div class="mh"><div class="mt" style="color:var(--red)">⚠ 전체 초기화</div><button class="mc" onclick="document.getElementById('clearConfirmModal').classList.remove('open')">✕</button></div>
+    <div class="mb">
+      <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:14px;margin-bottom:18px;font-size:13px;line-height:1.8;color:var(--dim)">
+        ⚠ 이 작업은 <strong style="color:var(--red)">되돌릴 수 없습니다.</strong><br>
+        등록된 모든 부품과 입출고 기록이 <strong style="color:var(--red)">영구 삭제</strong>됩니다.<br><br>
+        삭제 전 <strong style="color:var(--text)">📂 데이터 관리 → JSON 내보내기</strong>로 백업을 권장합니다.
+      </div>
+      <div class="fl">
+        <label>확인을 위해 아래에 <strong style="color:var(--red)">초기화</strong> 라고 입력하세요</label>
+        <input id="clearInput" placeholder="초기화" oninput="checkClearInput()" style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:15px;font-family:'Noto Sans KR',sans-serif;text-align:center;letter-spacing:2px;">
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="document.getElementById('clearConfirmModal').classList.remove('open')">취소</button>
+      <button class="btn br" id="clearConfirmBtn" disabled onclick="doClearAll()" style="opacity:.4;transition:opacity .2s" onmouseenter="this.style.opacity=this.disabled?'.4':'1'" >전체 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADJUST STOCK MODAL -->
+<div class="overlay" id="adjustModal">
+  <div class="modal" style="max-width:400px">
+    <div class="mh"><div class="mt" id="adjustTitle">재고 조정</div><button class="mc" onclick="document.getElementById('adjustModal').classList.remove('open')">✕</button></div>
+    <div class="mb">
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px">
+        <div style="color:var(--muted);font-size:11px;margin-bottom:4px">현재 재고</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--accent)" id="adjustCurrent">0</div>
+        <div style="color:var(--muted);font-size:12px" id="adjustPartName">-</div>
+      </div>
+      <div class="fl" style="margin-bottom:14px">
+        <label>조정 방식</label>
+        <select id="adjustMode" class="qr-select" onchange="updateAdjustPreview()">
+          <option value="set">직접 입력 (재고를 이 숫자로 설정)</option>
+          <option value="add">추가 (현재 재고에 더하기)</option>
+          <option value="sub">차감 (현재 재고에서 빼기)</option>
+        </select>
+      </div>
+      <div class="fl" style="margin-bottom:14px">
+        <label>수량</label>
+        <input type="number" id="adjustQty" min="0" value="0" oninput="updateAdjustPreview()" style="padding:8px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:20px;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;">
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;text-align:center" id="adjustPreview">
+        조정 후 재고: <strong style="color:var(--green);font-size:18px" id="adjustAfter">-</strong>
+      </div>
+      <div class="fl" style="margin-top:14px">
+        <label>사유</label>
+        <input id="adjustNote" placeholder="재고 실사, 분실, 파손 등" style="padding:8px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:'Noto Sans KR',sans-serif;">
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="document.getElementById('adjustModal').classList.remove('open')">취소</button>
+      <button class="btn bp" onclick="doAdjust()">조정 적용</button>
+    </div>
+  </div>
+</div>
+
+<!-- DATA MODAL -->
+<div class="overlay" id="dataModal">
+  <div class="modal" style="max-width:560px">
+    <div class="mh"><div class="mt">📂 데이터 관리</div><button class="mc" onclick="closeDataModal()">✕</button></div>
+    <div class="mb">
+      <div class="data-grid">
+        <div class="data-card">
+          <div class="data-card-icon">💾</div>
+          <div class="data-card-title">JSON 내보내기</div>
+          <div class="data-card-desc">전체 데이터(부품+기록)를 JSON 파일로 저장합니다. 다른 PC에서 가져오기로 복원 가능합니다.</div>
+          <button class="btn bp btn-sm" onclick="exportJSON()">내보내기</button>
+        </div>
+        <div class="data-card">
+          <div class="data-card-icon">📂</div>
+          <div class="data-card-title">JSON 가져오기</div>
+          <div class="data-card-desc">이전에 내보낸 JSON 파일을 불러옵니다. 기존 데이터에 병합하거나 덮어쓸 수 있습니다.</div>
+          <button class="btn bs btn-sm" onclick="document.getElementById('jsonFileInput').click()">파일 선택</button>
+          <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="importJSON(this)">
+        </div>
+        <div class="data-card">
+          <div class="data-card-icon">📊</div>
+          <div class="data-card-title">CSV 내보내기</div>
+          <div class="data-card-desc">엑셀·구글 시트에서 열 수 있는 CSV 파일로 내보냅니다. 부품 목록과 입출고 기록을 포함합니다.</div>
+          <button class="btn bp btn-sm" onclick="exportCSV()">내보내기</button>
+        </div>
+        <div class="data-card">
+          <div class="data-card-icon">📥</div>
+          <div class="data-card-title">CSV 가져오기</div>
+          <div class="data-card-desc">CSV 파일에서 부품 목록을 가져옵니다. 열 순서: 메이커,모델,연식,품번,품명,사용위치,입고가,출고가,최소재고,보관위치</div>
+          <button class="btn bs btn-sm" onclick="document.getElementById('csvFileInput').click()">파일 선택</button>
+          <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="importCSV(this)">
+        </div>
+      </div>
+      <div class="drop-zone" id="dropZone" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        📄 JSON 또는 CSV 파일을 여기에 드래그 & 드롭
+      </div>
+      <div style="margin-top:14px;padding:12px;background:var(--surface2);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.8">
+        💡 <strong style="color:var(--text)">사용 팁</strong><br>
+        • <strong style="color:var(--text)">백업</strong>: 정기적으로 JSON 내보내기로 백업하세요<br>
+        • <strong style="color:var(--text)">다른 PC로 이동</strong>: JSON 내보내기 → 다른 PC에서 JSON 가져오기<br>
+        • <strong style="color:var(--text)">엑셀 연동</strong>: CSV 내보내기 후 엑셀에서 열어 보고서 작성
+      </div>
+      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">⚠ 위험 구역</div>
+        <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text)">전체 데이터 초기화</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">부품 목록 및 입출고 기록을 모두 삭제합니다. 되돌릴 수 없습니다.</div>
+          </div>
+          <button class="btn btn-outline-red btn-sm" style="flex-shrink:0" onclick="clearAll()">🗑 초기화</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR MODAL -->
+<div class="overlay" id="qrModal">
+  <div class="modal" style="max-width:420px">
+    <div class="mh"><div class="mt">📱 QR 코드</div><button class="mc" onclick="closeQRModal()">✕</button></div>
+    <div class="mb">
+      <div class="fl" style="margin-bottom:16px">
+        <label>부품 선택</label>
+        <select class="qr-select" id="qrPartSel" onchange="drawQR()">
+          <option value="">-- 부품 선택 --</option>
+        </select>
+      </div>
+      <div class="qr-wrap">
+        <canvas id="qrCanvas" class="qr-canvas" width="220" height="220"></canvas>
+        <div class="qr-info" id="qrInfo">부품을 선택하면 QR 코드가 생성됩니다</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:var(--surface2);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.7">
+        📱 스마트폰 카메라로 QR 스캔 시 부품 정보(품번, 품명, 현재고, 위치)를 텍스트로 확인할 수 있습니다.
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="closeQRModal()">닫기</button>
+      <button class="btn bp" onclick="downloadQR()">QR 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- hidden import merge modal -->
+<div class="overlay" id="mergeModal">
+  <div class="modal" style="max-width:380px">
+    <div class="mh"><div class="mt">가져오기 옵션</div><button class="mc" onclick="document.getElementById('mergeModal').classList.remove('open')">✕</button></div>
+    <div class="mb">
+      <p style="font-size:14px;color:var(--dim);margin-bottom:18px">가져올 데이터를 어떻게 처리할까요?</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn bp" style="justify-content:center" onclick="doImport('merge')">🔀 병합 (기존 데이터 유지 + 추가)</button>
+        <button class="btn btn-outline-red" style="justify-content:center" onclick="doImport('replace')">♻ 덮어쓰기 (기존 데이터 삭제 후 교체)</button>
+        <button class="btn bs" style="justify-content:center" onclick="document.getElementById('mergeModal').classList.remove('open')">취소</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// DATA MODAL
+// ══════════════════════════════════════
+let pendingImportData = null;
+
+function openDataModal(){ document.getElementById('dataModal').classList.add('open'); }
+function closeDataModal(){ document.getElementById('dataModal').classList.remove('open'); }
+
+function exportJSON(){
+  if(!parts.length && !logs.length){ toast('내보낼 데이터가 없습니다.','err'); return; }
+  const data = { version:1, exportedAt: new Date().toISOString(), parts, logs };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `motostock_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  toast('JSON 파일을 내보냈습니다.','ok');
+}
+
+function importJSON(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result);
+      if(!data.parts || !data.logs) throw new Error('올바른 형식이 아닙니다.');
+      pendingImportData = data;
+      document.getElementById('mergeModal').classList.add('open');
+    } catch(err){ toast('파일 읽기 실패: '+err.message, 'err'); }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+function doImport(mode){
+  if(!pendingImportData) return;
+  document.getElementById('mergeModal').classList.remove('open');
+  if(mode==='replace'){
+    parts = pendingImportData.parts;
+    logs  = pendingImportData.logs;
+    toast(`데이터를 교체했습니다. (부품 ${parts.length}개, 기록 ${logs.length}건)`,'ok');
+  } else {
+    // merge: add non-duplicate parts (by partNo) and all logs
+    let addedP=0, addedL=0;
+    pendingImportData.parts.forEach(np=>{
+      if(!parts.find(p=>p.partNo===np.partNo)){ parts.push(np); addedP++; }
+    });
+    pendingImportData.logs.forEach(nl=>{
+      if(!logs.find(l=>l.id===nl.id)){ logs.push(nl); addedL++; }
+    });
+    toast(`병합 완료: 부품 +${addedP}개, 기록 +${addedL}건`,'ok');
+  }
+  pendingImportData = null;
+  save(); renderAll(); closeDataModal();
+}
+
+function importCSV(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(l=>l.trim());
+    let added=0, skipped=0;
+    // skip header line if it starts with non-data
+    const start = lines[0].toLowerCase().includes('메이커') || lines[0].toLowerCase().includes('maker') ? 1 : 0;
+    for(let i=start;i<lines.length;i++){
+      const cols = lines[i].split(',').map(c=>c.replace(/^"|"$/g,'').trim());
+      if(cols.length < 5) { skipped++; continue; }
+      const partNo = cols[3]||cols[4]||'';
+      if(!partNo){ skipped++; continue; }
+      if(parts.find(p=>p.partNo===partNo)){ skipped++; continue; }
+      const id='P'+String(parts.length+1).padStart(3,'0');
+      parts.push({
+        id, maker:cols[0]||'', model:cols[1]||'', year:cols[2]||'',
+        partNo:cols[3]||'', name:cols[4]||'', location:cols[5]||'',
+        inPrice:Number(cols[6])||0, outPrice:Number(cols[7])||0,
+        minStock:Number(cols[8])||0, storage:cols[9]||'', memo:cols[10]||''
+      });
+      added++;
+    }
+    save(); renderAll(); closeDataModal();
+    toast(`CSV 가져오기 완료: ${added}개 추가, ${skipped}개 건너뜀`,'ok');
+  };
+  reader.readAsText(file, 'utf-8');
+  input.value='';
+}
+
+// Drag & Drop
+function onDragOver(e){ e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
+function onDragLeave(e){ document.getElementById('dropZone').classList.remove('drag-over'); }
+function onDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0]; if(!file) return;
+  if(file.name.endsWith('.json')){
+    const inp = {files:[file], value:''};
+    importJSON(inp);
+  } else if(file.name.endsWith('.csv')){
+    const inp = {files:[file], value:''};
+    importCSV(inp);
+  } else { toast('JSON 또는 CSV 파일만 지원합니다.','err'); }
+}
+
+// ══════════════════════════════════════
+// QR CODE (순수 JS 구현)
+// ══════════════════════════════════════
+function openQRModal(){
+  // fill select
+  const sel = document.getElementById('qrPartSel');
+  sel.innerHTML = '<option value="">-- 부품 선택 --</option>' +
+    parts.map(p=>`<option value="${p.partNo}">${p.name} (${p.partNo})</option>`).join('');
+  document.getElementById('qrModal').classList.add('open');
+  // clear canvas
+  const ctx = document.getElementById('qrCanvas').getContext('2d');
+  ctx.clearRect(0,0,220,220);
+  document.getElementById('qrInfo').textContent='부품을 선택하면 QR 코드가 생성됩니다';
+}
+function closeQRModal(){ document.getElementById('qrModal').classList.remove('open'); }
+
+function drawQR(){
+  const partNo = document.getElementById('qrPartSel').value;
+  const p = parts.find(x=>x.partNo===partNo);
+  if(!p){ return; }
+  const stock = getStock(p);
+  const text = `[MOTOSTOCK]\n품번: ${p.partNo}\n품명: ${p.name}\n메이커: ${p.maker} ${p.model}\n현재고: ${stock}개\n보관위치: ${p.storage}\n출고가: ${p.outPrice.toLocaleString()}원`;
+  document.getElementById('qrInfo').textContent = `${p.name} — 재고: ${stock}개`;
+
+  // Use QR API (Google Charts - works offline alternative)
+  const canvas = document.getElementById('qrCanvas');
+  const encoded = encodeURIComponent(text);
+  const img = new Image();
+  img.crossOrigin='anonymous';
+  img.onload = ()=>{
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,220,220);
+    ctx.drawImage(img,10,10,200,200);
+  };
+  img.onerror = ()=>{
+    // fallback: draw text QR placeholder
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle='#1e1e1e';
+    ctx.fillRect(0,0,220,220);
+    ctx.fillStyle='#ff4d00';
+    ctx.font='bold 13px monospace';
+    ctx.textAlign='center';
+    ctx.fillText('QR 생성 실패', 110, 60);
+    ctx.fillStyle='#e8e8e8';
+    ctx.font='11px monospace';
+    const lines = text.split('\n');
+    lines.forEach((l,i)=>ctx.fillText(l, 110, 85+i*18));
+    toast('QR API 접근 불가 - 네트워크를 확인하세요','err');
+  };
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}`;
+}
+
+function downloadQR(){
+  const partNo = document.getElementById('qrPartSel').value;
+  const p = parts.find(x=>x.partNo===partNo);
+  if(!p){ toast('부품을 먼저 선택해주세요.','err'); return; }
+  const canvas = document.getElementById('qrCanvas');
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `QR_${p.partNo}_${p.name}.png`;
+  a.click();
+  toast('QR 코드가 저장되었습니다.','ok');
+}
+
+// ══════════════════════════════════════
+// 재고 조정
+// ══════════════════════════════════════
+let adjustPartNo = null;
+
+function openAdjust(partNo){
+  adjustPartNo = partNo;
+  const p = parts.find(x=>x.partNo===partNo);
+  if(!p) return;
+  const cur = getStock(p);
+  document.getElementById('adjustTitle').textContent = '재고 조정 — '+p.name;
+  document.getElementById('adjustCurrent').textContent = cur+'개';
+  document.getElementById('adjustPartName').textContent = p.partNo+' / '+p.maker+' '+p.model;
+  document.getElementById('adjustQty').value = cur;
+  document.getElementById('adjustMode').value = 'set';
+  document.getElementById('adjustNote').value = '';
+  updateAdjustPreview();
+  document.getElementById('adjustModal').classList.add('open');
+}
+
+function updateAdjustPreview(){
+  if(!adjustPartNo) return;
+  const p = parts.find(x=>x.partNo===adjustPartNo);
+  const cur = getStock(p);
+  const qty = Number(document.getElementById('adjustQty').value)||0;
+  const mode = document.getElementById('adjustMode').value;
+  let after = mode==='set' ? qty : mode==='add' ? cur+qty : cur-qty;
+  after = Math.max(0, after);
+  const el = document.getElementById('adjustAfter');
+  el.textContent = after+'개';
+  el.style.color = after===0 ? 'var(--red)' : after <= (p.minStock||0) ? 'var(--yellow)' : 'var(--green)';
+}
+
+function doAdjust(){
+  const p = parts.find(x=>x.partNo===adjustPartNo);
+  if(!p) return;
+  const cur = getStock(p);
+  const qty = Number(document.getElementById('adjustQty').value)||0;
+  const mode = document.getElementById('adjustMode').value;
+  const note = document.getElementById('adjustNote').value.trim() || '재고 조정';
+  let after = mode==='set' ? qty : mode==='add' ? cur+qty : cur-qty;
+  after = Math.max(0, after);
+  const diff = after - cur;
+  if(diff===0){ toast('변경사항이 없습니다.','err'); return; }
+
+  const today = new Date().toISOString().slice(0,10);
+  if(diff>0){
+    logs.push({id:'L'+Date.now(), date:today, type:'입고', partNo:p.partNo, qty:diff, price:p.inPrice, note:'[재고조정] '+note});
+  } else {
+    logs.push({id:'L'+Date.now(), date:today, type:'출고', partNo:p.partNo, qty:Math.abs(diff), price:p.outPrice, note:'[재고조정] '+note});
+  }
+  save(); renderAll();
+  document.getElementById('adjustModal').classList.remove('open');
+  toast(`재고 조정 완료: ${cur}개 → ${after}개 (${diff>0?'+':''}${diff})`, 'ok');
+}
+
+</script>
+
+
+
+<!-- 견적서 미리보기 -->
+<div class="quote-preview-overlay" id="quotePreview">
+  <div class="quote-preview-topbar">
+    <button class="qpb-print" onclick="saveQuotePdf()">📄 PDF 저장</button>
+    <button class="qpb-print" style="background:#2563eb;font-size:12px" onclick="shareQuote()">📤 공유</button>
+    <button class="qpb-close" onclick="closeQuotePreview()">✕</button>
+  </div>
+  <div id="quotePreviewBody"></div>
+</div>
+
+<!-- PRINT AREA -->
+<div id="printArea"></div>
+
+<!-- BOTTOM NAV (mobile) -->
+<div class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bn-item active" id="bn-dash" onclick="show('dash')">
+      <span class="bn-icon">📊</span><span>대시보드</span>
+    </button>
+    <button class="bn-item" id="bn-parts" onclick="show('parts')">
+      <span class="bn-icon">🔩</span><span>부품</span>
+    </button>
+    <button class="bn-item" id="bn-stock" onclick="show('stock')">
+      <span class="bn-icon">📦</span><span>재고</span>
+    </button>
+    <button class="bn-item" id="bn-low" onclick="show('low')">
+      <span class="bn-icon">⚠</span><span>부족</span>
+      <span class="bn-badge" id="bnBadge">0</span>
+    </button>
+    <button class="bn-item" id="bn-inout" onclick="show('inout')">
+      <span class="bn-icon">↕</span><span>입출고</span>
+    </button>
+    <button class="bn-item" id="bn-log" onclick="show('log')">
+      <span class="bn-icon">📋</span><span>기록</span>
+    </button>
+    <button class="bn-item" id="bn-quote" onclick="show('quote')">
+      <span class="bn-icon">📄</span><span>견적서</span>
+    </button>
+  </div>
+</div>
+
+<script>
+var qItems = [];
+var qLabors = [];
+
+function initQuote() {
+  var d = document.getElementById('qDate');
+  if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+  try {
+    var c = JSON.parse(localStorage.getItem('moto_company') || '{}');
+    var a = document.getElementById('qCompany'); if (a && !a.value) a.value = c.company || '';
+    var b = document.getElementById('qPhone');   if (b && !b.value) b.value = c.phone || '';
+    var e = document.getElementById('qAddress'); if (e && !e.value) e.value = c.address || '';
+  } catch(ex) {}
+  renderQItems();
+  renderQLabors();
+}
+
+function saveCompany() {
+  localStorage.setItem('moto_company', JSON.stringify({
+    company: (document.getElementById('qCompany') || {}).value || '',
+    phone:   (document.getElementById('qPhone')   || {}).value || '',
+    address: (document.getElementById('qAddress') || {}).value || ''
+  }));
+}
+
+setTimeout(function() {
+  ['qCompany','qPhone','qAddress'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('blur', saveCompany);
+  });
+}, 800);
+
+function addQuoteItem(partNo) {
+  var p = partNo ? parts.find(function(x) { return x.partNo === partNo; }) : null;
+  qItems.push({ name: p ? p.name : '', qty: 1, price: p ? (p.outPrice || 0) : 0 });
+  renderQItems();
+  var pk = document.getElementById('quotePartPicker');
+  if (pk) pk.style.display = 'none';
+}
+
+function addFromParts() {
+  var pk = document.getElementById('quotePartPicker');
+  if (!pk) return;
+  pk.style.display = (pk.style.display === 'block') ? 'none' : 'block';
+}
+
+function removeQItem(idx) {
+  qItems.splice(idx, 1);
+  renderQItems();
+}
+
+function updateQItem(el) {
+  var i = parseInt(el.dataset.i);
+  var f = el.dataset.f;
+  qItems[i][f] = (f === 'qty' || f === 'price') ? (Number(el.value) || 0) : el.value;
+  calcQTotal();
+}
+
+function renderQItems() {
+  var wrap = document.getElementById('quoteItems');
+  if (!wrap) return;
+  if (!qItems.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">+ 직접 입력 또는 부품에서 추가하세요</div>';
+    calcQTotal();
+    return;
+  }
+  var h = '';
+  for (var i = 0; i < qItems.length; i++) {
+    var item = qItems[i];
+    var nm = (item.name || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    h += '<div class="quote-item-row">';
+    h += '<input value="' + nm + '" placeholder="품명" data-i="' + i + '" data-f="name" oninput="updateQItem(this)">';
+    h += '<input type="number" value="' + item.qty + '" min="1" data-i="' + i + '" data-f="qty" oninput="updateQItem(this)">';
+    h += '<input type="number" value="' + item.price + '" min="0" data-i="' + i + '" data-f="price" oninput="updateQItem(this)">';
+    h += '<button class="quote-del-btn" onclick="removeQItem(' + i + ')">x</button>';
+    h += '</div>';
+  }
+  wrap.innerHTML = h;
+  calcQTotal();
+}
+
+function addLaborItem() {
+  qLabors.push({ name: '', price: 0 });
+  renderQLabors();
+}
+
+function removeQLabor(idx) {
+  qLabors.splice(idx, 1);
+  renderQLabors();
+}
+
+function updateQLabor(el) {
+  var i = parseInt(el.dataset.i);
+  var f = el.dataset.f;
+  qLabors[i][f] = (f === 'price') ? (Number(el.value) || 0) : el.value;
+  calcQTotal();
+}
+
+function renderQLabors() {
+  var wrap = document.getElementById('laborItems');
+  if (!wrap) return;
+  if (!qLabors.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:6px 0">공임이 없으면 비워두세요</div>';
+    calcQTotal();
+    return;
+  }
+  var h = '';
+  for (var i = 0; i < qLabors.length; i++) {
+    var item = qLabors[i];
+    var nm = (item.name || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    h += '<div class="quote-item-row" style="grid-template-columns:1fr 1fr 90px 28px">';
+    h += '<input value="' + nm + '" placeholder="작업명 (예: 오일교체)" data-i="' + i + '" data-f="name" oninput="updateQLabor(this)" style="grid-column:span 2">';
+    h += '<input type="number" value="' + item.price + '" min="0" placeholder="금액" data-i="' + i + '" data-f="price" oninput="updateQLabor(this)">';
+    h += '<button class="quote-del-btn" onclick="removeQLabor(' + i + ')">x</button>';
+    h += '</div>';
+  }
+  wrap.innerHTML = h;
+  calcQTotal();
+}
+
+function calcQTotal() {
+  var ps = 0;
+  for (var i = 0; i < qItems.length; i++) ps += qItems[i].qty * qItems[i].price;
+  var ls = 0;
+  for (var j = 0; j < qLabors.length; j++) ls += qLabors[j].price;
+  var sup = ps + ls;
+  var vat = Math.round(sup * 0.1);
+  var tot = sup + vat;
+  function sv(id, v) { var el = document.getElementById(id); if (el) el.textContent = v.toLocaleString() + '원'; }
+  sv('qSubtotal', ps); sv('qLaborTotal', ls); sv('qSupply', sup); sv('qVat', vat); sv('qTotal', tot);
+}
+
+function resetQuote() {
+  if (!confirm('견적서를 초기화할까요?')) return;
+  qItems = []; qLabors = [];
+  ['qCustomer','qCarNo','qCarModel','qCarYear','qMemo'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  var d = document.getElementById('qDate'); if (d) d.value = new Date().toISOString().slice(0, 10);
+  renderQItems();
+  renderQLabors();
+}
+
+function buildQHtml() {
+  function gv(id) { return (document.getElementById(id) || {}).value || ''; }
+  var co = gv('qCompany') || '업체명';
+  var ph = gv('qPhone');
+  var addr = gv('qAddress');
+  var cu = gv('qCustomer') || '고객명';
+  var car = gv('qCarNo');
+  var cm = gv('qCarModel');
+  var cy = gv('qCarYear');
+  var dt = gv('qDate');
+  var memo = gv('qMemo');
+
+  var ps = 0;
+  for (var i = 0; i < qItems.length; i++) ps += qItems[i].qty * qItems[i].price;
+  var ls = 0;
+  for (var j = 0; j < qLabors.length; j++) ls += qLabors[j].price;
+  var sup = ps + ls;
+  var vat = Math.round(sup * 0.1);
+  var tot = sup + vat;
+
+  var rows = '';
+  for (var i = 0; i < qItems.length; i++) {
+    var it = qItems[i];
+    rows += '<tr>'
+      + '<td style="text-align:center;padding:7px 6px;border-bottom:1px solid #eee">' + (i + 1) + '</td>'
+      + '<td style="padding:7px 6px;border-bottom:1px solid #eee">' + (it.name || '') + '</td>'
+      + '<td style="text-align:center;padding:7px 6px;border-bottom:1px solid #eee">' + it.qty + '</td>'
+      + '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid #eee">' + it.price.toLocaleString() + '</td>'
+      + '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid #eee">' + (it.qty * it.price).toLocaleString() + '</td>'
+      + '</tr>';
+  }
+  var empty = Math.max(0, 6 - qItems.length);
+  for (var e = 0; e < empty; e++) {
+    rows += '<tr><td style="padding:7px 6px;border-bottom:1px solid #eee">&nbsp;</td><td style="border-bottom:1px solid #eee"></td><td style="border-bottom:1px solid #eee"></td><td style="border-bottom:1px solid #eee"></td><td style="border-bottom:1px solid #eee"></td></tr>';
+  }
+
+  var lT = '';
+  if (qLabors.length) {
+    lT = '<table style="width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14px">'
+      + '<thead><tr style="background:#444;color:#fff"><th style="padding:7px 8px;text-align:left" colspan="4">공임 (작업비)</th><th style="padding:7px 8px;text-align:right;width:110px">금액</th></tr></thead><tbody>';
+    for (var k = 0; k < qLabors.length; k++) {
+      lT += '<tr><td colspan="4" style="padding:7px 8px;border-bottom:1px solid #eee">' + (qLabors[k].name || '') + '</td>'
+        + '<td style="text-align:right;padding:7px 8px;border-bottom:1px solid #eee">' + qLabors[k].price.toLocaleString() + '</td></tr>';
+    }
+    lT += '</tbody></table>';
+  }
+
+  var lRow = qLabors.length
+    ? '<tr><td style="padding:5px 12px;background:#f5f5f5;font-weight:700">공임 소계</td><td style="padding:5px 12px;text-align:right">' + ls.toLocaleString() + ' 원</td></tr>'
+    : '';
+
+  return '<div style="font-family:sans-serif;color:#111;box-sizing:border-box;">'
+    + '<div style="text-align:center;border-bottom:3px solid #111;padding-bottom:12px;margin-bottom:20px">'
+    + '<div style="font-size:26pt;font-weight:900;letter-spacing:6px">견 적 서</div></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">'
+    + '<div style="border:1px solid #ccc;border-radius:4px;padding:12px">'
+    + '<div style="font-size:8pt;font-weight:700;color:#888;margin-bottom:6px">공급자</div>'
+    + '<div style="font-size:13pt;font-weight:900;margin-bottom:4px">' + co + '</div>'
+    + '<div style="font-size:9pt;color:#444">' + ph + '</div>'
+    + '<div style="font-size:9pt;color:#444;margin-top:2px">' + addr + '</div></div>'
+    + '<div style="border:1px solid #ccc;border-radius:4px;padding:12px">'
+    + '<div style="font-size:8pt;font-weight:700;color:#888;margin-bottom:6px">수신자</div>'
+    + '<div style="font-size:13pt;font-weight:900;margin-bottom:4px">' + cu + ' 님</div>'
+    + '<div style="font-size:9pt;color:#444">차량번호: ' + car + '</div>'
+    + '<div style="font-size:9pt;color:#444;margin-top:2px">차종: ' + cm + (cy?' '+cy:'') + '</div>'
+    + '<div style="font-size:9pt;color:#444;margin-top:2px">견적일: ' + dt + '</div></div></div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14px">'
+    + '<thead><tr style="background:#222;color:#fff">'
+    + '<th style="padding:8px;text-align:center;width:36px">No.</th>'
+    + '<th style="padding:8px;text-align:left">품명</th>'
+    + '<th style="padding:8px;text-align:center;width:48px">수량</th>'
+    + '<th style="padding:8px;text-align:right;width:90px">단가</th>'
+    + '<th style="padding:8px;text-align:right;width:110px">금액</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table>'
+    + lT
+    + '<div style="display:flex;justify-content:flex-end;margin-bottom:18px">'
+    + '<table style="border-collapse:collapse;font-size:10pt;width:280px">'
+    + '<tr><td style="padding:5px 12px;background:#f5f5f5;font-weight:700">부품 소계</td><td style="padding:5px 12px;text-align:right">' + ps.toLocaleString() + ' 원</td></tr>'
+    + lRow
+    + '<tr style="border-top:1px solid #bbb"><td style="padding:5px 12px;background:#f5f5f5;font-weight:700">공급가액</td><td style="padding:5px 12px;text-align:right">' + sup.toLocaleString() + ' 원</td></tr>'
+    + '<tr><td style="padding:5px 12px;background:#f5f5f5;font-weight:700">부가세 (10%)</td><td style="padding:5px 12px;text-align:right">' + vat.toLocaleString() + ' 원</td></tr>'
+    + '<tr style="border-top:2px solid #111;background:#222;color:#fff">'
+    + '<td style="padding:9px 12px;font-size:13pt;font-weight:900">최종 합계</td>'
+    + '<td style="padding:9px 12px;text-align:right;font-size:13pt;font-weight:900">' + tot.toLocaleString() + ' 원</td></tr>'
+    + '</table></div>'
+    + (memo ? '<div style="border:1px solid #ddd;border-radius:4px;padding:12px;font-size:9pt;color:#444;margin-bottom:16px"><strong>특이사항:</strong> ' + memo + '</div>' : '')
+    + '<div style="border-top:1px solid #ccc;padding-top:10px;font-size:8pt;color:#888;text-align:center">'
+    + '본 견적서는 발행일로부터 30일간 유효합니다.' + (ph ? ' · 문의: ' + ph : '') + '</div></div>';
+}
+
+function closeQuotePreview() {
+  var ov = document.getElementById('quotePreview');
+  if (ov) ov.classList.remove('open');
+}
+
+function printQuote() {
+  var ov = document.getElementById('quotePreview');
+  var body = document.getElementById('quotePreviewBody');
+  if (!ov || !body) return;
+  body.innerHTML = buildQHtml();
+  ov.classList.add('open');
+  window.scrollTo(0, 0);
+}
+
+function directPrint() {
+  var ov = document.getElementById('quotePreview');
+  var body = document.getElementById('quotePreviewBody');
+  if (!ov || !body) return;
+  body.innerHTML = buildQHtml();
+  ov.classList.add('open');
+  setTimeout(function() { window.print(); }, 400);
+}
+
+(function() {
+  var _s = window.show;
+  window.show = function(id) {
+    _s(id);
+    if (id === 'quote') setTimeout(initQuote, 50);
+  };
+})();
+
+(function() {
+  var _sp = window.selectPart;
+  window.selectPart = function(dir, partNo) {
+    if (dir === 'qp') {
+      addQuoteItem(partNo);
+      var d = document.getElementById('qpPartDisplay'); if (d) { d.value = ''; d.classList.remove('selected'); }
+      var h = document.getElementById('qpPart'); if (h) h.value = '';
+      var dd = document.getElementById('qpPartDropdown'); if (dd) dd.classList.remove('open');
+      var s = document.getElementById('qpPartSearch'); if (s) s.value = '';
+      var pk = document.getElementById('quotePartPicker'); if (pk) pk.style.display = 'none';
+      return;
+    }
+    if (_sp) _sp(dir, partNo);
+  };
+})();
+</script>
+
+</body>
+</html>
+
+<script>
+function downloadQuoteHtml() {
+  function gv(id) { return (document.getElementById(id) || {}).value || ''; }
+  var cu = gv('qCustomer') || '고객';
+  var dt = gv('qDate') || new Date().toISOString().slice(0,10);
+  var qBody = document.getElementById('quotePreviewBody').innerHTML;
+
+  // A4 인쇄용 완전한 HTML 생성
+  var pageHtml = '<!DOCTYPE html><html lang="ko"><head>'
+    + '<meta charset="UTF-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<title>견적서_' + cu + '_' + dt + '</title>'
+    + '<style>'
+    + '*{box-sizing:border-box;margin:0;padding:0}'
+    + 'body{background:#e8e8e8;display:flex;flex-direction:column;align-items:center;min-height:100vh}'
+    + '.toolbar{width:100%;background:#111;padding:12px 16px;display:flex;gap:10px;position:sticky;top:0;z-index:99}'
+    + '.toolbar button{padding:12px 0;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}'
+    + '.tp{background:#ff4d00;color:#fff;flex:3}'
+    + '.tc{background:#444;color:#fff;flex:1}'
+    + '.page{background:#fff;width:210mm;min-height:297mm;padding:15mm;margin:20px auto;box-shadow:0 4px 20px rgba(0,0,0,0.2)}'
+    + '@media print{'
+    + '.toolbar{display:none}'
+    + 'body{background:#fff}'
+    + '.page{margin:0;box-shadow:none;width:100%}'
+    + '}'
+    + '@page{size:A4;margin:0}'
+    + '</style>'
+    + '</head><body>'
+    + '<div class="toolbar">'
+    + '<button class="tp" onclick="window.print()">🖨 인쇄 / PDF 저장</button>'
+    + '<button class="tc" onclick="window.close()">✕</button>'
+    + '</div>'
+    + '<div class="page">' + qBody.replace(/<div[^>]*>/, '').replace(/<\/div>$/, '') + '</div>'
+    + '<script>window.onload=function(){var r=confirm("인쇄 다이얼로그를 열까요?\n(PDF로 저장하려면 \'PDF로 저장\'을 선택하세요)");if(r)window.print();}<\/script>'
+    + '</body></html>';
+
+  var blob = new Blob([pageHtml], {type:'text/html;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+
+  // 방법 1: <a> 태그 다운로드
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '견적서_' + cu + '_' + dt + '.html';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+
+  setTimeout(function() {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 2000);
+
+  toast('다운로드 폴더를 확인하세요! 파일을 열면 인쇄/PDF 저장 가능합니다.', 'ok');
+}
+</script>
+
+<script>
+// html2canvas CDN 동적 로드
+function loadHtml2Canvas(cb) {
+  if (window.html2canvas) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  s.onload = cb;
+  s.onerror = function() { toast('라이브러리 로드 실패. 인터넷 연결을 확인하세요.', 'err'); };
+  document.head.appendChild(s);
+}
+
+function saveQuoteImage() {
+  var target = document.querySelector('#quotePreviewBody > div');
+  if (!target) { toast('견적서 내용이 없습니다.', 'err'); return; }
+  toast('이미지 생성 중... 잠시만요', 'info');
+  loadHtml2Canvas(function() {
+    // 미리보기 topbar 숨기기
+    var tb = document.querySelector('.quote-preview-topbar');
+    if (tb) tb.style.display = 'none';
+    html2canvas(document.getElementById('quotePreviewBody'), {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    }).then(function(canvas) {
+      if (tb) tb.style.display = '';
+      function gv(id) { return (document.getElementById(id) || {}).value || ''; }
+      var cu = gv('qCustomer') || '고객';
+      var dt = gv('qDate') || new Date().toISOString().slice(0,10);
+      var filename = '견적서_' + cu + '_' + dt + '.png';
+      // 방법1: 직접 다운로드 시도
+      try {
+        var link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast('갤러리 또는 다운로드 폴더를 확인하세요!', 'ok');
+      } catch(e) {
+        // 방법2: Web Share API로 공유
+        canvas.toBlob(function(blob) {
+          var file = new File([blob], filename, {type:'image/png'});
+          if (navigator.share && navigator.canShare && navigator.canShare({files:[file]})) {
+            navigator.share({title:'견적서', files:[file]})
+              .then(function(){ toast('공유 완료!', 'ok'); })
+              .catch(function(){});
+          } else {
+            toast('저장 실패. 화면을 캡처해 저장하세요.', 'err');
+          }
+        });
+      }
+    }).catch(function(e) {
+      if (tb) tb.style.display = '';
+      toast('오류: ' + e.message, 'err');
+    });
+  });
+}
+
+function shareQuote() {
+  saveQuoteImage();
+}
+</script>
+
+<script>
+// PDF 저장 - jsPDF 라이브러리 사용
+function loadJsPdf(cb) {
+  if (window.jspdf) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  s.onload = function() {
+    var s2 = document.createElement('script');
+    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s2.onload = cb;
+    s2.onerror = function() { toast('라이브러리 로드 실패. 인터넷 연결 확인!', 'err'); };
+    document.head.appendChild(s2);
+  };
+  s.onerror = function() { toast('라이브러리 로드 실패. 인터넷 연결 확인!', 'err'); };
+  document.head.appendChild(s);
+}
+
+function saveQuotePdf() {
+  var target = document.getElementById('quotePreviewBody');
+  if (!target || !target.innerHTML) { toast('견적서 내용이 없습니다.', 'err'); return; }
+  toast('PDF 생성 중... 잠시만요', 'info');
+
+  var tb = document.querySelector('.quote-preview-topbar');
+  if (tb) tb.style.display = 'none';
+
+  loadJsPdf(function() {
+    html2canvas(target, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    }).then(function(canvas) {
+      if (tb) tb.style.display = '';
+
+      function gv(id) { return (document.getElementById(id) || {}).value || ''; }
+      var cu = gv('qCustomer') || '고객';
+      var dt = gv('qDate') || new Date().toISOString().slice(0,10);
+      var filename = '견적서_' + cu + '_' + dt + '.pdf';
+
+      var imgData = canvas.toDataURL('image/png');
+      var pdf = new window.jspdf.jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      var pageW = 210;
+      var pageH = 297;
+      var imgW = pageW;
+      var imgH = (canvas.height * pageW) / canvas.width;
+
+      // 여러 페이지 처리
+      var y = 0;
+      if (imgH <= pageH) {
+        pdf.addImage(imgData, 'PNG', 0, 0, imgW, imgH);
+      } else {
+        while (y < imgH) {
+          if (y > 0) pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, -y, imgW, imgH);
+          y += pageH;
+        }
+      }
+
+      pdf.save(filename);
+      toast('PDF 저장 완료! 다운로드 폴더를 확인하세요.', 'ok');
+    }).catch(function(e) {
+      if (tb) tb.style.display = '';
+      toast('PDF 생성 실패: ' + e.message, 'err');
+    });
+  });
+}
+</script>
