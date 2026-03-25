@@ -1,0 +1,16 @@
+{
+  "name": "MotoStock — 재고관리",
+  "short_name": "MotoStock",
+  "description": "오토바이 부품 재고관리 앱",
+  "start_url": "/moto-stock/",
+  "scope": "/moto-stock/",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#ff4d00",
+  "orientation": "portrait",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
